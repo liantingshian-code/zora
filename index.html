@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#74ebd5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="每日任務">
+<title>小孩每日任務點數表</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+  background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.app { width: 100%; max-width: 480px; }
+header { text-align: center; margin-bottom: 16px; }
+h1 { color: #2d3436; font-size: 28px; }
+#date { color: #636e72; margin-top: 4px; font-size: 15px; }
+.scoreboard { display: flex; gap: 10px; margin-bottom: 12px; }
+.score {
+  flex: 1; background: #fff; border-radius: 16px; padding: 12px;
+  text-align: center; font-size: 15px; color: #636e72;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+.score span { display: block; font-size: 26px; font-weight: bold; color: #e17055; margin-top: 2px; }
+.score.total span { color: #f39c12; }
+.progress {
+  background: rgba(255,255,255,0.6); border-radius: 999px; height: 14px;
+  overflow: hidden; margin-bottom: 16px;
+}
+#progressBar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #00b894, #55efc4);
+  border-radius: 999px; transition: width 0.4s ease;
+}
+ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+li { background: #fff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+.task-btn {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 17px; color: #2d3436; text-align: left;
+}
+.emoji { font-size: 26px; }
+.circle {
+  width: 30px; height: 30px; border-radius: 50%; border: 3px solid #b2bec3;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #fff; flex-shrink: 0; transition: all 0.2s;
+}
+li.done .circle { background: #00b894; border-color: #00b894; }
+li.done .circle::after { content: "✓"; }
+li.done .task-btn { color: #b2bec3; text-decoration: line-through; }
+.pts {
+  margin-left: auto; font-size: 14px; font-weight: bold; color: #fff;
+  background: #e17055; border-radius: 999px; padding: 3px 10px; flex-shrink: 0;
+}
+li.done .pts { background: #b2bec3; }
+.celebrate {
+  text-align: center; font-size: 22px; font-weight: bold; color: #d63031;
+  margin: 18px 0; animation: bounce 0.8s infinite alternate;
+}
+.hidden { display: none; }
+@keyframes bounce { from { transform: scale(1); } to { transform: scale(1.08); } }
+.parent { margin-top: 20px; text-align: center; }
+.parent button { font-family: inherit; }
+#parentToggle {
+  background: rgba(255,255,255,0.7); border: none; border-radius: 999px;
+  padding: 8px 16px; font-size: 14px; color: #636e72; cursor: pointer;
+}
+#parentPanel { display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 10px; }
+#parentPanel button {
+  border: none; border-radius: 12px; padding: 10px 14px;
+  font-size: 14px; cursor: pointer; color: #fff;
+}
+.reward-title { font-size: 15px; font-weight: bold; color: #636e72; }
+#rewardList { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.reward-btn {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; width: 100%; background: #e17055;
+}
+.reward-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+#resetToday { background: #0984e3; }
+#resetAll { background: #636e72; }
+.float-point {
+  position: fixed; font-size: 22px; font-weight: bold; color: #e17055;
+  pointer-events: none; animation: floatUp 1s ease forwards; z-index: 999;
+}
+@keyframes floatUp {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-60px); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🌟 今日任務 🌟</h1>
+    <div id="date"></div>
+  </header>
+  <section class="scoreboard">
+    <div class="score today">今日點數<span id="todayPoints">0</span></div>
+    <div class="score total">累積點數<span id="totalPoints">0</span> ⭐</div>
+  </section>
+  <div class="progress"><div id="progressBar"></div></div>
+  <ul id="taskList"></ul>
+  <div id="celebrate" class="celebrate hidden">🎉 太棒了！全部完成！🎉</div>
+  <div class="parent">
+    <button id="parentToggle">⚙️ 家長專區</button>
+    <div id="parentPanel" class="hidden">
+      <div class="reward-title">🎁 獎勵兌換（點任務存點數，集滿就能換！）</div>
+      <div id="rewardList"></div>
+      <button id="resetToday">🔄 重設今日</button>
+      <button id="resetAll">🗑️ 重設全部</button>
+    </div>
+  </div>
+</div>
+<script>
+const TASKS = [
+  { emoji: "📔", text: "拿聯絡本出來給家長簽名", points: 1 },
+  { emoji: "🛁", text: "洗澡", points: 1 },
+  { emoji: "🦷", text: "刷牙", points: 1 },
+  { emoji: "✏️", text: "寫作業", points: 1 },
+  { emoji: "🍽️", text: "把餐具拿到水槽放", points: 1 },
+  { emoji: "🍚", text: "認真吃飯", points: 2 },
+  { emoji: "🏫", text: "認真上課", points: 2 },
+  { emoji: "😊", text: "有禮貌", points: 2 },
+  { emoji: "🌙", text: "晚上 9 點前睡覺", points: 2 }
+];
+const KEY_DATE = "kidDailyDate";
+const KEY_CHECKS = "kidDailyChecks";
+const KEY_TOTAL = "kidTotalPoints";
+
+const dateEl = document.getElementById("date");
+const taskList = document.getElementById("taskList");
+const todayPointsEl = document.getElementById("todayPoints");
+const totalPointsEl = document.getElementById("totalPoints");
+const progressBar = document.getElementById("progressBar");
+const celebrateEl = document.getElementById("celebrate");
+const parentToggle = document.getElementById("parentToggle");
+const parentPanel = document.getElementById("parentPanel");
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function displayDate() {
+  const d = new Date();
+  const week = ["日", "一", "二", "三", "四", "五", "六"];
+  return d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日（星期" + week[d.getDay()] + "）";
+}
+
+let total = parseInt(localStorage.getItem(KEY_TOTAL) || "0", 10);
+if (isNaN(total) || total < 0) total = 0;
+
+let checks = null;
+if (localStorage.getItem(KEY_DATE) === todayStr()) {
+  try { checks = JSON.parse(localStorage.getItem(KEY_CHECKS)); } catch (e) { checks = null; }
+}
+if (!Array.isArray(checks) || checks.length !== TASKS.length) {
+  checks = TASKS.map(() => false);
+}
+
+function save() {
+  localStorage.setItem(KEY_DATE, todayStr());
+  localStorage.setItem(KEY_CHECKS, JSON.stringify(checks));
+  localStorage.setItem(KEY_TOTAL, String(total));
+}
+
+function checkNewDay() {
+  if (localStorage.getItem(KEY_DATE) !== todayStr()) {
+    checks = TASKS.map(() => false);
+    save();
+    render();
+  }
+}
+
+function renderDate() {
+  dateEl.textContent = displayDate();
+}
+
+function renderTasks() {
+  taskList.innerHTML = "";
+  TASKS.forEach((t, i) => {
+    const li = document.createElement("li");
+    if (checks[i]) li.classList.add("done");
+    const btn = document.createElement("button");
+    btn.className = "task-btn";
+    btn.innerHTML = '<span class="circle"></span><span class="emoji">' + t.emoji + '</span><span>' + t.text + '</span><span class="pts">+' + t.points + '</span>';
+    btn.addEventListener("click", (e) => toggleTask(i, e));
+    li.appendChild(btn);
+    taskList.appendChild(li);
+  });
+}
+
+function renderStatus() {
+  const doneCount = checks.filter(Boolean).length;
+  const todaySum = TASKS.reduce((s, t, i) => s + (checks[i] ? t.points : 0), 0);
+  todayPointsEl.textContent = todaySum;
+  totalPointsEl.textContent = total;
+  progressBar.style.width = (doneCount / TASKS.length * 100) + "%";
+  if (doneCount === TASKS.length) {
+    celebrateEl.classList.remove("hidden");
+  } else {
+    celebrateEl.classList.add("hidden");
+  }
+}
+
+function render() {
+  renderDate();
+  renderTasks();
+  renderStatus();
+  renderRewards();
+}
+
+function toggleTask(i, e) {
+  checks[i] = !checks[i];
+  const pts = TASKS[i].points;
+  if (checks[i]) {
+    total += pts;
+    showFloat(e, pts);
+  } else {
+    total = Math.max(0, total - pts);
+  }
+  save();
+  render();
+}
+
+function showFloat(e, pts) {
+  const s = document.createElement("span");
+  s.className = "float-point";
+  s.textContent = "+" + pts;
+  s.style.left = (e.clientX - 10) + "px";
+  s.style.top = (e.clientY - 30) + "px";
+  document.body.appendChild(s);
+  setTimeout(() => s.remove(), 1000);
+}
+
+parentToggle.addEventListener("click", () => {
+  parentPanel.classList.toggle("hidden");
+});
+
+const REWARDS = [
+  { emoji: "📺", text: "看電視 2 次（每次 40 分鐘）", cost: 25 },
+  { emoji: "🙈", text: "玩躲貓貓或其他親子家裡遊戲", cost: 25 },
+  { emoji: "🧸", text: "選一個小玩具", cost: 40 },
+  { emoji: "📚", text: "選一本新故事書", cost: 60 },
+  { emoji: "🍦", text: "冰淇淋一支", cost: 100 },
+  { emoji: "🚗", text: "小旅行", cost: 400 }
+];
+
+function renderRewards() {
+  const list = document.getElementById("rewardList");
+  list.innerHTML = "";
+  REWARDS.forEach((r) => {
+    const btn = document.createElement("button");
+    btn.className = "reward-btn";
+    btn.disabled = total < r.cost;
+    btn.innerHTML = "<span>" + r.emoji + " " + r.text + "</span><span>" + r.cost + " 點</span>";
+    btn.addEventListener("click", () => redeemReward(r));
+    list.appendChild(btn);
+  });
+}
+
+function redeemReward(r) {
+  if (total < r.cost) { alert("點數不足！目前只有 " + total + " 點"); return; }
+  if (confirm("確定用 " + r.cost + " 點兌換「" + r.text + "」嗎？")) {
+    total -= r.cost;
+    save();
+    render();
+    alert("兌換成功！剩下 " + total + " 點");
+  }
+}
+
+document.getElementById("resetToday").addEventListener("click", () => {
+  if (confirm("確定要重設今日任務嗎？")) {
+    checks = TASKS.map(() => false);
+    save();
+    render();
+  }
+});
+
+document.getElementById("resetAll").addEventListener("click", () => {
+  if (confirm("確定要清除所有點數並重設任務嗎？")) {
+    total = 0;
+    checks = TASKS.map(() => false);
+    save();
+    render();
+  }
+});
+
+window.addEventListener("focus", checkNewDay);
+
+render();
+</script>
+</body>
+</html>
